@@ -9,11 +9,15 @@ import {
 	WebGLRenderer,
 	Vector3,
 	Raycaster,
+	BufferGeometry,
+	BufferAttribute,
+	Points,
+	PointsMaterial,
 } from "three";
 import { OrbitControls, TransformControls } from "three/examples/jsm/Addons.js";
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as CANNON from 'cannon-es';
 
-// let cameraPersp: PerspectiveCamera,
 let camera: OrthographicCamera,
   scene: Scene,
 	renderer: WebGLRenderer,
@@ -23,12 +27,46 @@ let camera: OrthographicCamera,
 
 // Satellite mode variables
 let satelliteMode = false;
-let satellitePointLongitude = 0; // Initial point on sphere (in radians)
+let satellitePointLongitude = 0;
 let satellitePointLatitude = 0;
+
+// Physics world
+let world: CANNON.World;
+let sphereBody: CANNON.Body;
+let fragmentBodies: CANNON.Body[] = [];
+let fragmentMeshes: Mesh[] = [];
+
+// Particles
+let particles: Points | null = null;
 
 // When nothing is dragged for some time, start animation
 function animate( time: number ) {
   worldSphere.rotation.y = time / 41000;
+  
+  // Update physics
+  world.step(1 / 60);
+  
+  // Update fragment meshes from physics bodies
+  for (let i = 0; i < fragmentMeshes.length; i++) {
+    const mesh = fragmentMeshes[i]!;
+    const body = fragmentBodies[i]!;
+    mesh.position.copy(body.position as any);
+    mesh.quaternion.copy(body.quaternion as any);
+  }
+  
+  // Update particles
+  if (particles) {
+    const posAttr = particles.geometry.attributes.position;
+    if (posAttr) {
+      const positions = posAttr.array as Float32Array;
+      for (let i = 0; i < positions.length; i += 3) {
+        positions[i]! -= Math.random() * 0.02;
+        positions[i + 1]! -= 0.01;
+        positions[i + 2]! -= Math.random() * 0.02;
+      }
+      posAttr.needsUpdate = true;
+    }
+  }
   
   if ( satelliteMode ) {
     updateSatelliteCamera();
@@ -44,26 +82,21 @@ animate( 0 );
 function updateSatelliteCamera() {
   const cameraDistance = 3;
   
-  // Sphere's current rotation
   const sphereRotationY = worldSphere.rotation.y;
   
-  // Point on sphere in local coordinates (latitude/longitude style)
   const effectiveLatitude = satellitePointLatitude;
   const effectiveLongitude = satellitePointLongitude + sphereRotationY;
   
-  // Convert spherical to Cartesian coordinates
   const x = Math.cos(effectiveLatitude) * Math.sin(effectiveLongitude);
   const y = Math.sin(effectiveLatitude);
   const z = Math.cos(effectiveLatitude) * Math.cos(effectiveLongitude);
   
-  // Position camera above the point on sphere surface
   camera.position.set(
     x * cameraDistance,
     y * cameraDistance,
     z * cameraDistance
   );
   
-  // Look at the point on sphere surface
   const targetPoint = new Vector3(x, y, z);
   camera.lookAt(targetPoint);
 }
@@ -72,37 +105,27 @@ function toggleSatelliteMode() {
   satelliteMode = !satelliteMode;
   
   if ( satelliteMode ) {
-    // Find what point on sphere we're currently looking at
     const cameraDirection = new Vector3();
     camera.getWorldDirection(cameraDirection);
     
-    // Cast a ray from camera to find intersection with sphere
     const raycaster = new Raycaster(camera.position, cameraDirection);
     const intersects = raycaster.intersectObject(worldSphere);
     
     if ( intersects.length > 0 ) {
-      // Get the intersection point
-      const hitPoint = intersects[0].point;
-      
-      // Convert world position to sphere local coordinates
+      const hitPoint = intersects[0]!.point;
       const localPoint = hitPoint.clone();
       
-      // Calculate latitude (angle from equator)
       satellitePointLatitude = Math.asin(localPoint.y);
-      
-      // Calculate longitude (angle around Y axis)
       satellitePointLongitude = Math.atan2(localPoint.x, localPoint.z);
       
       console.log(`Satellite locked to point: lat=${(satellitePointLatitude * 180 / Math.PI).toFixed(1)}°, lon=${(satellitePointLongitude * 180 / Math.PI).toFixed(1)}°`);
     }
     
-    // Disable orbit controls in satellite mode
     orbit.enabled = false;
     control.enabled = false;
     
-    console.log("Satellite mode ON - camera locked to sphere point");
+    console.log("Satellite mode ON");
   } else {
-    // Re-enable orbit controls
     orbit.enabled = true;
     control.enabled = true;
     
@@ -110,17 +133,103 @@ function toggleSatelliteMode() {
   }
 }
 
+function explodeSphere() {
+  if (fragmentMeshes.length > 0) {
+    console.log("Sphere already exploded!");
+    return;
+  }
+  
+  console.log("💥 EXPLOSION!");
+  
+  // Remove the main sphere from scene
+  scene.remove(worldSphere);
+  
+  // Create fragments
+  const fragmentCount = 12;
+  const explosionForce = 30;
+  
+  for (let i = 0; i < fragmentCount; i++) {
+    // Create fragment mesh
+    const geometry = new SphereGeometry(0.3, 8, 8);
+    const material = new MeshBasicMaterial({ color: Math.random() * 0xffffff, wireframe: true });
+    const fragment = new Mesh(geometry, material);
+    
+    // Position around sphere center
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI;
+    const radius = 0.8;
+    
+    fragment.position.set(
+      radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi)
+    );
+    
+    scene.add(fragment);
+    fragmentMeshes.push(fragment);
+    
+    // Create physics body
+    const shape = new CANNON.Sphere(0.3);
+    const body = new CANNON.Body({
+      mass: 1,
+      shape: shape,
+      linearDamping: 0.3,
+      angularDamping: 0.3,
+    });
+    
+    body.position.copy(fragment.position as any);
+    world.addBody(body);
+    fragmentBodies.push(body);
+    
+    // Apply explosion force
+    const forceDirection = new CANNON.Vec3(
+      Math.sin(phi) * Math.cos(theta),
+      Math.sin(phi) * Math.sin(theta),
+      Math.cos(phi)
+    );
+    forceDirection.normalize();
+    
+    body.applyImpulse(
+      new CANNON.Vec3(
+        forceDirection.x * explosionForce,
+        forceDirection.y * explosionForce,
+        forceDirection.z * explosionForce
+      ),
+      body.position
+    );
+  }
+  
+  // Create particles
+  createExplosionParticles();
+}
+
+function createExplosionParticles() {
+  const particleCount = 1000;
+  const positions = new Float32Array(particleCount * 3);
+  
+  for (let i = 0; i < particleCount * 3; i += 3) {
+    positions[i] = (Math.random() - 0.5) * 2;
+    positions[i + 1] = (Math.random() - 0.5) * 2;
+    positions[i + 2] = (Math.random() - 0.5) * 2;
+  }
+  
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(positions, 3));
+  
+  const material = new PointsMaterial({
+    color: 0xffaa00,
+    size: 0.05,
+  });
+  
+  particles = new Points(geometry, material);
+  scene.add(particles);
+}
+
 function init() {
 	scene = new Scene();
 	const aspect = window.innerWidth / window.innerHeight;
 	const frustumSize = 10;
 
-	// cameraPersp = new PerspectiveCamera(
-	// 	90,
-	// 	window.innerWidth / window.innerHeight,
-	// 	0.1,
-	// 	1000,
-	// );
 	camera = new OrthographicCamera(
 		-frustumSize * aspect,
 		frustumSize * aspect,
@@ -139,22 +248,32 @@ function init() {
 	worldSphere = new Mesh(geometry, material);
 	scene.add(worldSphere);
 
-  // damn, some light source would be nice.
+  // Physics world setup
+  world = new CANNON.World();
+  world.gravity.set(0, 0, 0);
+  world.defaultContactMaterial.friction = 0.3;
+  
+  // Create physics body for sphere
+  const sphereShape = new CANNON.Sphere(1);
+  sphereBody = new CANNON.Body({
+    mass: 0, // Static
+    shape: sphereShape,
+  });
+  world.addBody(sphereBody);
+
   const light = new DirectionalLight(0xffffff, 1);
   light.position.set(5, 5, 5);
   scene.add(light);
 
-  // second light from up, to make the shadows less harsh
   const light2 = new DirectionalLight(0xffffff, 0.5);
   light2.position.set(-40, -5, -5);
   scene.add(light2);
 
-  // Now, some background with stars would be nice.
   const backgroundGeometry = new SphereGeometry(100, 64, 64);
   const backgroundMaterial = new MeshBasicMaterial({ color: 0x000044, side: BackSide });
   const backgroundMesh = new Mesh(backgroundGeometry, backgroundMaterial);
   scene.add(backgroundMesh);
-  // add stars to the background
+  
   const starGeometry = new SphereGeometry(0.02, 8, 8);
   const starMaterial = new MeshBasicMaterial({ color: 0xffffff });
   for (let i = 0; i < 1000; i++) {
@@ -167,7 +286,6 @@ function init() {
     scene.add(star);
   }
 
-  // lets have fun with objects
   const loader = new GLTFLoader();
   loader.load( 'ClearCoatCarPaint.glb', function ( gltf ) {
   gltf.scene.translateY(-0.5);
@@ -191,15 +309,19 @@ function init() {
 
 	camera.position.z = 2;
 
-	// Add SPACE BAR listener for satellite mode toggle
+	// SPACE BAR for satellite mode, E for explosion
 	window.addEventListener("keydown", (event) => {
 		if (event.code === "Space") {
 			event.preventDefault();
 			toggleSatelliteMode();
 		}
+    if (event.code === "KeyE") {
+      event.preventDefault();
+      explodeSphere();
+    }
 	});
 }
 
-function render(time?: number) {
+function render() {
 	renderer.render(scene, camera);
 }
