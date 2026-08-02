@@ -1,0 +1,15 @@
+= A game
+
+Three.js + some wild ideas.
+
+It's in very early development.
+
+== What is it about
+
+Combine X-COM, Spore and with Black & White and some other ideas. The player is "a god" and can create a world, populate it with creatures, and then watch them evolve and interact with each other. The player can also intervene in the world, either by helping or hindering the creatures.
+
+== How to run
+
+`devenv up` and you're ready to go. The game will be available at http://localhost:5173
+
+IMPORTANT: THIS IS VERY EARLY DEVELOPMENT. The game is not playable yet.

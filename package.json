@@ -1,0 +1,24 @@
+{
+  "name": "three-world",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "lint": "biome check --write"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "@types/node": "^26.1.2",
+    "vite": "^8.2.0"
+  },
+  "dependencies": {
+    "@types/three": "^0.185.3",
+    "three": "^0.185.1"
+  }
+}
