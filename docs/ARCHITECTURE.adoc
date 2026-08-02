@@ -2,3 +2,8 @@
 
 The project has no architecture yet.
 
+== Start of architecture
+
+This is my first project in 3D, so I will start with a simple architecture and then improve it as I learn more.
+
+I think I need UI, Engine and World. Maybe a Game?
