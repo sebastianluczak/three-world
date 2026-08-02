@@ -1,0 +1,4 @@
+= Architecture
+
+The project has no architecture yet.
+

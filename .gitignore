@@ -9,5 +9,9 @@ devenv.local.yaml
 # pre-commit
 .pre-commit-config.yaml
 
+# vs code
+.vscode/
+
+# project
 node_modules/
 public/dist/
