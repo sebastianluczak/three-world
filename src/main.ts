@@ -115,16 +115,21 @@ function lookAtPlanetAtIndex(index: number) {
   const childBody = fragmentBodies[index];
   const childMesh = fragmentMeshes[index];
   if (childMesh && childBody) {
-    const targetPosition = childBody.position;
+    // Convert CANNON.Vec3 to THREE.Vector3 for camera/controls operations
+    const targetPosition = new Vector3(childBody.position.x, childBody.position.y, childBody.position.z);
     console.log(`Looking at planet index: ${index} at position: (${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)})`);
-    camera.position.set(
-      targetPosition.x + 2,
-      targetPosition.y + 2,
-      targetPosition.z + 2
-    );
-    const cameraVector = new Vector3().subVectors(targetPosition, camera.position).normalize();
-    // camera.lookAt(cameraVector);
-    // instead of looking, can we move the camera to the cameraVector?
+
+    // Place the camera some distance away from the target. Adjust distance as needed.
+    const offset = new Vector3(2, 2, 2);
+    camera.position.copy(targetPosition).add(offset);
+
+    // Make the camera look at the planet
+    camera.lookAt(targetPosition);
+
+    // Tell OrbitControls to orbit around the planet
+    orbit.target.copy(targetPosition);
+    orbit.update();
+
     console.log(`Camera now looking at planet index: ${index}`);
   } else {
     console.log(`No planet found at index: ${index}`);
