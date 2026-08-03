@@ -16,6 +16,7 @@ import {
   MeshLambertMaterial,
   MeshStandardMaterial,
   TextureLoader,
+  Texture,
 } from "three";
 import { OrbitControls, TransformControls } from "three/examples/jsm/Addons.js";
 import * as CANNON from 'cannon-es';
@@ -34,10 +35,33 @@ let sphereBody: CANNON.Body;
 let fragmentBodies: CANNON.Body[] = [];
 let fragmentMeshes: Mesh[] = [];
 
+// a record of textures, url based (as path)
+let textures: Record<string, Texture> = {};
+
 // Particles - destroyers
 let particles: Points | null = null;
 
-// When nothing is dragged for some time, start animation
+async function preloadTextures() {
+  const textureLoader = new TextureLoader();
+  const texturesToLoad = [
+    'textures/earth_high_res.jpg',
+    'textures/mars_high_res.jpg',
+  ];
+  // load all textures in parallel
+  const loadedTextures = await Promise.all(texturesToLoad.map((url) => {
+    return new Promise<Texture>((resolve, reject) => {
+      textureLoader.load(url, resolve, undefined, reject);
+    });
+  }));
+
+  // Store loaded textures in the textures object
+  texturesToLoad.forEach((url, index) => {
+    textures[url] = loadedTextures[index]!;
+  });
+}
+
+// First entry into animate takes forever, then it's quite nice performance.
+// I think i need some kind of deltas to calculate what's happening here.
 function animate( time: number ) {
   // The main spehere is rotating.
   worldSphere.rotation.y = time / 3000;
@@ -75,8 +99,18 @@ function animate( time: number ) {
   requestAnimationFrame( animate );
 }
 
-init();
-animate( 0 );
+async function main() {
+  console.log("Preloading textures...");
+  await preloadTextures();
+  console.log("Textures preloaded.");
+  console.log("Starting main initialization...");
+  init();
+  console.log("Initialization complete. Starting animation loop...");
+  const currentTime = performance.now();
+  animate(currentTime);
+}
+
+main();
 
 
 function lookAtPlanetAtIndex(index: number) {
@@ -136,11 +170,11 @@ function explodeSphere() {
     // Create fragment mesh
     const geometry = new SphereGeometry(0.5, 10, 10);
 
-
-    const texture = new TextureLoader().load('textures/world.jpg');
+    // Loading textures must be delegated to loading screen....
+    const texture = textures['textures/earth_high_res.jpg'];
     const material = new MeshLambertMaterial({
       // color: 0x3498db,      // Base blue color
-      map: texture
+      map: texture!
     });
     const fragment = new Mesh(geometry, material);
     
@@ -233,9 +267,9 @@ function init() {
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	document.body.appendChild(renderer.domElement);
 
-  const marsTexture = new TextureLoader().load('textures/mars.jpg');
+  const marsTexture = textures['textures/mars_high_res.jpg'];
 	const geometry = new SphereGeometry(1, 32);
-	const material = new MeshLambertMaterial({ map: marsTexture });
+	const material = new MeshLambertMaterial({ map: marsTexture! });
 	worldSphere = new Mesh(geometry, material);
 	scene.add(worldSphere);
 

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLANETFALL • Become a God</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,body{
+    height:100%;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:#020611;
+    color:#fff;
+}
+
+body{
+    overflow-x:hidden;
+}
+
+/* Background */
+
+body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(90,140,255,.35), transparent 45%),
+        radial-gradient(circle at 80% 15%, rgba(255,255,255,.12), transparent 15%),
+        radial-gradient(circle at 15% 25%, rgba(255,255,255,.08), transparent 18%),
+        linear-gradient(#030617,#010205);
+    z-index:-3;
+}
+
+.stars{
+    position:fixed;
+    inset:0;
+    background-image:
+        radial-gradient(white 1px, transparent 1px);
+    background-size:40px 40px;
+    opacity:.25;
+    z-index:-2;
+}
+
+.hero{
+
+    min-height:100vh;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    text-align:center;
+
+    padding:40px;
+}
+
+.content{
+    max-width:900px;
+}
+
+.small{
+    letter-spacing:5px;
+    text-transform:uppercase;
+    color:#9ab8ff;
+    font-size:.8rem;
+    margin-bottom:20px;
+}
+
+h1{
+    font-size:clamp(3rem,8vw,7rem);
+    line-height:.9;
+    margin-bottom:30px;
+}
+
+h1 span{
+    color:#73a7ff;
+}
+
+p{
+    max-width:700px;
+    margin:0 auto;
+    font-size:1.15rem;
+    line-height:1.8;
+    color:#cfd8f5;
+}
+
+.buttons{
+    margin-top:50px;
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    flex-wrap:wrap;
+}
+
+a.button{
+    text-decoration:none;
+    color:white;
+    padding:16px 34px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.2);
+    transition:.3s;
+    backdrop-filter:blur(10px);
+}
+
+.primary{
+    background:#4d7dff;
+    border:none;
+}
+
+.primary:hover{
+    background:#6d97ff;
+    transform:translateY(-2px);
+}
+
+.secondary:hover{
+    background:rgba(255,255,255,.08);
+}
+
+.features{
+    background:#060c1f;
+    padding:100px 30px;
+}
+
+.grid{
+    display:grid;
+    gap:30px;
+    max-width:1100px;
+    margin:auto;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+}
+
+.card{
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;
+    padding:35px;
+}
+
+.card h2{
+    margin-bottom:15px;
+    color:#8db4ff;
+}
+
+.card p{
+    margin:0;
+    font-size:1rem;
+}
+
+footer{
+    text-align:center;
+    padding:50px;
+    color:#7d8cb8;
+    font-size:.9rem;
+}
+</style>
+</head>
+
+<body>
+
+<div class="stars"></div>
+
+<section class="hero">
+
+<div class="content">
+
+<div class="small">
+DEVELOPMENT PHASE • NOT REPRESENTATIVE OF FINAL GAME
+</div>
+
+<h1>
+Become the <span>God</span><br>
+of Entire Worlds
+</h1>
+
+<p>
+Create planets from dust. Guide civilizations through millions of years.
+Reward the faithful, punish the arrogant, rewrite evolution,
+or simply watch your universe unfold.
+Every decision echoes across galaxies.
+</p>
+
+<div class="buttons">
+<a href="#" class="button primary">
+Wishlist on Steam
+</a>
+
+<a href="/public/index.html" class="button secondary">
+Play Online (WebGL)
+</a>
+</div>
+
+</div>
+
+</section>
+
+<section class="features">
+
+<div class="grid">
+
+<div class="card">
+<h2>Create</h2>
+<p>
+Shape continents, oceans, climates, and moons. Every world begins as a blank canvas.
+</p>
+</div>
+
+<div class="card">
+<h2>Influence</h2>
+<p>
+Answer prayers, send miracles, unleash disasters, or remain silent while civilizations rise and fall.
+</p>
+</div>
+
+<div class="card">
+<h2>Evolve</h2>
+<p>
+Guide life from primitive organisms to interstellar empires—or extinction.
+</p>
+</div>
+
+<div class="card">
+<h2>Observe</h2>
+<p>
+Your universe continues even when you do nothing. Time never stops.
+</p>
+</div>
+
+</div>
+
+</section>
+
+<footer>
+© 2026 Your Studio • Every universe begins with a single decision.
+</footer>
+
+</body>
+</html>
