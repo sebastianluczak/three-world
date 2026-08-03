@@ -41,8 +41,13 @@ let particles: Points | null = null;
 
 // When nothing is dragged for some time, start animation
 function animate( time: number ) {
-  worldSphere.rotation.y = time / 41000;
+  // The main spehere is rotating.
+  worldSphere.rotation.y = time / 3000;
   
+  // The spheres created by big bang are also rotating.
+  for (let i = 0; i < fragmentBodies.length; i++) {
+    fragmentBodies[i]!.angularVelocity.set(0.1, 0.1, 0.0);
+  }
   // Update physics
   world.step(1 / 60);
   
@@ -99,6 +104,31 @@ function updateSatelliteCamera() {
   
   const targetPoint = new Vector3(x, y, z);
   camera.lookAt(targetPoint);
+}
+
+function lookAtPlanetAtIndex(index: number) {
+  if (isNaN(index) || index < 0 || index >= fragmentBodies.length) {
+    console.log(`Invalid index: ${index}. Must be between 0 and ${Math.abs(fragmentBodies.length - 1)}`);
+    return;
+  }
+  // For all planets, that are created after the big bang.
+  const childBody = fragmentBodies[index];
+  const childMesh = fragmentMeshes[index];
+  if (childMesh && childBody) {
+    const targetPosition = childBody.position;
+    console.log(`Looking at planet index: ${index} at position: (${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)})`);
+    camera.position.set(
+      targetPosition.x + 2,
+      targetPosition.y + 2,
+      targetPosition.z + 2
+    );
+    const cameraVector = new Vector3().subVectors(targetPosition, camera.position).normalize();
+    // camera.lookAt(cameraVector);
+    // instead of looking, can we move the camera to the cameraVector?
+    console.log(`Camera now looking at planet index: ${index}`);
+  } else {
+    console.log(`No planet found at index: ${index}`);
+  }
 }
 
 function toggleSatelliteMode() {
@@ -309,6 +339,17 @@ function init() {
 
 	camera.position.z = 2;
 
+  let currentFragmentIndex = 0;
+
+
+  // if not exploded, explode at start.
+  if (fragmentBodies.length === 0) {
+    console.log("No fragments yet, exploding sphere first.");
+    explodeSphere();
+  } else {
+    console.log("Fragments already exist, looking at current fragment.");
+  }
+  
 	// SPACE BAR for satellite mode, E for explosion
 	window.addEventListener("keydown", (event) => {
 		if (event.code === "Space") {
@@ -318,6 +359,20 @@ function init() {
     if (event.code === "KeyE") {
       event.preventDefault();
       explodeSphere();
+    }
+    if (event.key === "q") {
+      console.log("Looking at PREVIOUS fragment");
+      event.preventDefault();
+      lookAtPlanetAtIndex(Math.abs((currentFragmentIndex - 1) % fragmentMeshes.length));
+      // shift the index internally
+      currentFragmentIndex = Math.abs((currentFragmentIndex - 1) % fragmentMeshes.length);
+    }
+    if (event.key === "w") {
+      console.log("Looking at NEXT fragment");
+      event.preventDefault();
+      lookAtPlanetAtIndex(Math.abs(currentFragmentIndex + 1) % fragmentMeshes.length);
+      // shift the index internally
+      currentFragmentIndex = Math.abs((currentFragmentIndex + 1) % fragmentMeshes.length);
     }
 	});
 }
