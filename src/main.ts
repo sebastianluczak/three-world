@@ -16,8 +16,6 @@ import {
   MeshLambertMaterial,
   MeshStandardMaterial,
   TextureLoader,
-  Texture,
-  Texture,
 } from "three";
 import { OrbitControls, TransformControls } from "three/examples/jsm/Addons.js";
 import * as CANNON from 'cannon-es';
@@ -139,8 +137,7 @@ function explodeSphere() {
     const geometry = new SphereGeometry(0.3, 10, 10);
 
 
-    const worldImage = new TextureLoader().load('textures/world.jpg');
-    const texture = new Texture(worldImage);
+    const texture = new TextureLoader().load('textures/world.jpg');
     const material = new MeshLambertMaterial({
       // color: 0x3498db,      // Base blue color
       map: texture
@@ -311,7 +308,7 @@ function init() {
 	orbit.maxPolarAngle = Math.PI - 0.1;
 	// With an orthographic camera, clamp zoom instead of distance
 	(orbit as any).minZoom = 0.5;
-	(orbit as any).maxZoom = 5;
+	(orbit as any).maxZoom = 50;
 	orbit.target.set(0, 0, 0);
 	orbit.update();
 	orbit.addEventListener("change", render);
