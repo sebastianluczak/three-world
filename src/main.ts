@@ -1,5 +1,4 @@
 import {
-  BackSide,
   DirectionalLight,
 	Mesh,
 	MeshBasicMaterial,
@@ -8,15 +7,21 @@ import {
 	SphereGeometry,
 	WebGLRenderer,
 	Vector3,
-	Raycaster,
 	BufferGeometry,
 	BufferAttribute,
 	Points,
 	PointsMaterial,
+  MeshDepthMaterial,
+  MeshNormalMaterial,
+  MeshLambertMaterial,
+  MeshStandardMaterial,
+  TextureLoader,
+  Texture,
+  Texture,
 } from "three";
 import { OrbitControls, TransformControls } from "three/examples/jsm/Addons.js";
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
+import { BumpMapNode } from "three/webgpu";
 
 let camera: OrthographicCamera,
   scene: Scene,
@@ -24,11 +29,6 @@ let camera: OrthographicCamera,
 	control: TransformControls,
 	orbit: OrbitControls,
   worldSphere: Mesh;
-
-// Satellite mode variables
-let satelliteMode = false;
-let satellitePointLongitude = 0;
-let satellitePointLatitude = 0;
 
 // Physics world
 let world: CANNON.World;
@@ -73,10 +73,6 @@ function animate( time: number ) {
     }
   }
   
-  if ( satelliteMode ) {
-    updateSatelliteCamera();
-  }
-  
   renderer.render( scene, camera );
   requestAnimationFrame( animate );
 }
@@ -84,34 +80,13 @@ function animate( time: number ) {
 init();
 animate( 0 );
 
-function updateSatelliteCamera() {
-  const cameraDistance = 3;
-  
-  const sphereRotationY = worldSphere.rotation.y;
-  
-  const effectiveLatitude = satellitePointLatitude;
-  const effectiveLongitude = satellitePointLongitude + sphereRotationY;
-  
-  const x = Math.cos(effectiveLatitude) * Math.sin(effectiveLongitude);
-  const y = Math.sin(effectiveLatitude);
-  const z = Math.cos(effectiveLatitude) * Math.cos(effectiveLongitude);
-  
-  camera.position.set(
-    x * cameraDistance,
-    y * cameraDistance,
-    z * cameraDistance
-  );
-  
-  const targetPoint = new Vector3(x, y, z);
-  camera.lookAt(targetPoint);
-}
 
 function lookAtPlanetAtIndex(index: number) {
   if (isNaN(index) || index < 0 || index >= fragmentBodies.length) {
     console.log(`Invalid index: ${index}. Must be between 0 and ${Math.abs(fragmentBodies.length - 1)}`);
     return;
   }
-  // For all planets, that are created after the big bang.
+
   const childBody = fragmentBodies[index];
   const childMesh = fragmentMeshes[index];
   if (childMesh && childBody) {
@@ -119,9 +94,16 @@ function lookAtPlanetAtIndex(index: number) {
     const targetPosition = new Vector3(childBody.position.x, childBody.position.y, childBody.position.z);
     console.log(`Looking at planet index: ${index} at position: (${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)})`);
 
-    // Place the camera some distance away from the target. Adjust distance as needed.
-    const offset = new Vector3(2, 2, 2);
-    camera.position.copy(targetPosition).add(offset);
+    // Compute a safe direction from current camera position to the target; if camera is exactly at target, use a default direction
+    let direction = camera.position.clone().sub(targetPosition);
+    if (direction.length() < 1e-3) {
+      direction = new Vector3(1, 1, 1);
+    }
+    direction.normalize();
+
+    // Desired distance from the target; ensure it's larger than fragment radius
+    const desiredDistance = 4.0;
+    camera.position.copy(targetPosition).add(direction.multiplyScalar(desiredDistance));
 
     // Make the camera look at the planet
     camera.lookAt(targetPosition);
@@ -136,37 +118,6 @@ function lookAtPlanetAtIndex(index: number) {
   }
 }
 
-function toggleSatelliteMode() {
-  satelliteMode = !satelliteMode;
-  
-  if ( satelliteMode ) {
-    const cameraDirection = new Vector3();
-    camera.getWorldDirection(cameraDirection);
-    
-    const raycaster = new Raycaster(camera.position, cameraDirection);
-    const intersects = raycaster.intersectObject(worldSphere);
-    
-    if ( intersects.length > 0 ) {
-      const hitPoint = intersects[0]!.point;
-      const localPoint = hitPoint.clone();
-      
-      satellitePointLatitude = Math.asin(localPoint.y);
-      satellitePointLongitude = Math.atan2(localPoint.x, localPoint.z);
-      
-      console.log(`Satellite locked to point: lat=${(satellitePointLatitude * 180 / Math.PI).toFixed(1)}°, lon=${(satellitePointLongitude * 180 / Math.PI).toFixed(1)}°`);
-    }
-    
-    orbit.enabled = false;
-    control.enabled = false;
-    
-    console.log("Satellite mode ON");
-  } else {
-    orbit.enabled = true;
-    control.enabled = true;
-    
-    console.log("Satellite mode OFF");
-  }
-}
 
 function explodeSphere() {
   if (fragmentMeshes.length > 0) {
@@ -185,8 +136,15 @@ function explodeSphere() {
   
   for (let i = 0; i < fragmentCount; i++) {
     // Create fragment mesh
-    const geometry = new SphereGeometry(0.3, 8, 8);
-    const material = new MeshBasicMaterial({ color: Math.random() * 0xffffff, wireframe: true });
+    const geometry = new SphereGeometry(0.3, 10, 10);
+
+
+    const worldImage = new TextureLoader().load('textures/world.jpg');
+    const texture = new Texture(worldImage);
+    const material = new MeshLambertMaterial({
+      // color: 0x3498db,      // Base blue color
+      map: texture
+    });
     const fragment = new Mesh(geometry, material);
     
     // Position around sphere center
@@ -304,10 +262,10 @@ function init() {
   light2.position.set(-40, -5, -5);
   scene.add(light2);
 
-  const backgroundGeometry = new SphereGeometry(100, 64, 64);
-  const backgroundMaterial = new MeshBasicMaterial({ color: 0x000044, side: BackSide });
-  const backgroundMesh = new Mesh(backgroundGeometry, backgroundMaterial);
-  scene.add(backgroundMesh);
+  // const backgroundGeometry = new SphereGeometry(190, 1, 1);
+  // const backgroundMaterial = new MeshBasicMaterial({ color: 0x220044, side: BackSide });
+  // const backgroundMesh = new Mesh(backgroundGeometry, backgroundMaterial);
+  // scene.add(backgroundMesh);
   
   const starGeometry = new SphereGeometry(0.02, 8, 8);
   const starMaterial = new MeshBasicMaterial({ color: 0xffffff });
@@ -318,21 +276,43 @@ function init() {
       (Math.random() - 0.5) * 200,
       (Math.random() - 0.5) * 200
     );
+
+    // Each star is a light source as well, spherical light with low intensity
+    // const starLight = new DirectionalLight(0xffffff, 1);
+    // starLight.position.copy(star.position);
+    // scene.add(starLight);
+
     scene.add(star);
   }
 
-  const loader = new GLTFLoader();
-  loader.load( 'ClearCoatCarPaint.glb', function ( gltf ) {
-  gltf.scene.translateY(-0.5);
-  scene.add( gltf.scene );
+//   const loader = new GLTFLoader();
+//   loader.load( 'ClearCoatCarPaint.glb', function ( gltf ) {
+//   gltf.scene.translateY(-0.5);
+//   scene.add( gltf.scene );
 
-}, undefined, function ( error ) {
+// }, undefined, function ( error ) {
 
-  console.error( error );
+//   console.error( error );
 
-} );
+// } );
 
+
+	// Put the camera further out and set a reasonable orthographic zoom
+	camera.position.set(5, 3, 5);
+	camera.zoom = 1.0;
+	camera.updateProjectionMatrix();
+
+	// OrbitControls tuning for smoother, stable behavior
 	orbit = new OrbitControls(camera, renderer.domElement);
+	orbit.enableDamping = true;
+	orbit.dampingFactor = 0.06;
+	orbit.screenSpacePanning = false; // pan in screen-space instead of world-space
+	orbit.minPolarAngle = 0.1; // prevent going directly above/below
+	orbit.maxPolarAngle = Math.PI - 0.1;
+	// With an orthographic camera, clamp zoom instead of distance
+	(orbit as any).minZoom = 0.5;
+	(orbit as any).maxZoom = 5;
+	orbit.target.set(0, 0, 0);
 	orbit.update();
 	orbit.addEventListener("change", render);
 
@@ -342,9 +322,7 @@ function init() {
 		orbit.enabled = !event.value;
 	});
 
-	camera.position.z = 2;
-
-  let currentFragmentIndex = 0;
+	let currentFragmentIndex = 0;
 
 
   // if not exploded, explode at start.
@@ -355,30 +333,26 @@ function init() {
     console.log("Fragments already exist, looking at current fragment.");
   }
   
-	// SPACE BAR for satellite mode, E for explosion
+	// E for explosion; Q/W to navigate fragments
 	window.addEventListener("keydown", (event) => {
-		if (event.code === "Space") {
-			event.preventDefault();
-			toggleSatelliteMode();
-		}
-    if (event.code === "KeyE") {
-      event.preventDefault();
-      explodeSphere();
-    }
-    if (event.key === "q") {
-      console.log("Looking at PREVIOUS fragment");
-      event.preventDefault();
-      lookAtPlanetAtIndex(Math.abs((currentFragmentIndex - 1) % fragmentMeshes.length));
-      // shift the index internally
-      currentFragmentIndex = Math.abs((currentFragmentIndex - 1) % fragmentMeshes.length);
-    }
-    if (event.key === "w") {
-      console.log("Looking at NEXT fragment");
-      event.preventDefault();
-      lookAtPlanetAtIndex(Math.abs(currentFragmentIndex + 1) % fragmentMeshes.length);
-      // shift the index internally
-      currentFragmentIndex = Math.abs((currentFragmentIndex + 1) % fragmentMeshes.length);
-    }
+	  if (event.code === "KeyE") {
+	    event.preventDefault();
+	    explodeSphere();
+	  }
+	  if (event.key === "q") {
+	    console.log("Looking at PREVIOUS fragment");
+	    event.preventDefault();
+	    lookAtPlanetAtIndex(Math.abs((currentFragmentIndex - 1) % fragmentMeshes.length));
+	    // shift the index internally
+	    currentFragmentIndex = Math.abs((currentFragmentIndex - 1) % fragmentMeshes.length);
+	  }
+	  if (event.key === "w") {
+	    console.log("Looking at NEXT fragment");
+	    event.preventDefault();
+	    lookAtPlanetAtIndex(Math.abs(currentFragmentIndex + 1) % fragmentMeshes.length);
+	    // shift the index internally
+	    currentFragmentIndex = Math.abs((currentFragmentIndex + 1) % fragmentMeshes.length);
+	  }
 	});
 }
 

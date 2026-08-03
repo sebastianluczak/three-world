@@ -2,12 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <title>My first three.js app</title>
     <style>
       body { margin: 0; }
+
+      #info {
+        position: absolute;
+        top: 10px;
+        width: 100%;
+        text-align: center;
+        z-index: 100;
+        color: whitesmoke;
+        display:block;
+      }
     </style>
   </head>
   <body>
+    <div id="info">Unnamed game</div>
+
     <script type="module" src="/public/dist/main.js"></script>
   </body>
 </html>
