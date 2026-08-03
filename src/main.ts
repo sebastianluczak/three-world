@@ -34,7 +34,7 @@ let sphereBody: CANNON.Body;
 let fragmentBodies: CANNON.Body[] = [];
 let fragmentMeshes: Mesh[] = [];
 
-// Particles
+// Particles - destroyers
 let particles: Points | null = null;
 
 // When nothing is dragged for some time, start animation
@@ -129,12 +129,12 @@ function explodeSphere() {
   scene.remove(worldSphere);
   
   // Create fragments
-  const fragmentCount = 12;
-  const explosionForce = 30;
+  const fragmentCount = 12; // 12 default
+  const explosionForce = 20; // 30 default
   
   for (let i = 0; i < fragmentCount; i++) {
     // Create fragment mesh
-    const geometry = new SphereGeometry(0.3, 10, 10);
+    const geometry = new SphereGeometry(0.5, 10, 10);
 
 
     const texture = new TextureLoader().load('textures/world.jpg');
@@ -194,7 +194,7 @@ function explodeSphere() {
 }
 
 function createExplosionParticles() {
-  const particleCount = 1000;
+  const particleCount = 2000;
   const positions = new Float32Array(particleCount * 3);
   
   for (let i = 0; i < particleCount * 3; i += 3) {
@@ -218,7 +218,7 @@ function createExplosionParticles() {
 function init() {
 	scene = new Scene();
 	const aspect = window.innerWidth / window.innerHeight;
-	const frustumSize = 10;
+	const frustumSize = 5;
 
 	camera = new OrthographicCamera(
 		-frustumSize * aspect,
@@ -233,8 +233,9 @@ function init() {
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	document.body.appendChild(renderer.domElement);
 
+  const marsTexture = new TextureLoader().load('textures/mars.jpg');
 	const geometry = new SphereGeometry(1, 32);
-	const material = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+	const material = new MeshLambertMaterial({ map: marsTexture });
 	worldSphere = new Mesh(geometry, material);
 	scene.add(worldSphere);
 
@@ -251,13 +252,35 @@ function init() {
   });
   world.addBody(sphereBody);
 
-  const light = new DirectionalLight(0xffffff, 1);
-  light.position.set(5, 5, 5);
+  const light = new DirectionalLight(0xffff00, 1);
+  light.position.set(10, 20, 15);
   scene.add(light);
 
-  const light2 = new DirectionalLight(0xffffff, 0.5);
-  light2.position.set(-40, -5, -5);
+  const light2 = new DirectionalLight(0xff00ff, 0.9);
+  light2.position.set(-40, -30, -20);
   scene.add(light2);
+
+  // Third light
+  const light3 = new DirectionalLight(0x00ffff, 0.8);
+  light3.position.set(40, -5, 40);
+  scene.add(light3);
+
+  // In position of lights, add big luminescent spheres to represent them visually
+  const lightSphereGeometry = new SphereGeometry(3, 16, 16);
+  const lightSphereMaterial = new MeshBasicMaterial({ color: 0xffff00 });
+  const lightSphere = new Mesh(lightSphereGeometry, lightSphereMaterial);
+  lightSphere.position.copy(light.position);
+  scene.add(lightSphere);
+
+  const light2SphereMaterial = new MeshBasicMaterial({ color: 0xff00ff });
+  const light2Sphere = new Mesh(lightSphereGeometry, light2SphereMaterial);
+  light2Sphere.position.copy(light2.position);
+  scene.add(light2Sphere);
+
+  const light3SphereMaterial = new MeshBasicMaterial({ color: 0x00ffff });
+  const light3Sphere = new Mesh(lightSphereGeometry, light3SphereMaterial);
+  light3Sphere.position.copy(light3.position);
+  scene.add(light3Sphere);
 
   // const backgroundGeometry = new SphereGeometry(190, 1, 1);
   // const backgroundMaterial = new MeshBasicMaterial({ color: 0x220044, side: BackSide });
@@ -323,12 +346,12 @@ function init() {
 
 
   // if not exploded, explode at start.
-  if (fragmentBodies.length === 0) {
-    console.log("No fragments yet, exploding sphere first.");
-    explodeSphere();
-  } else {
-    console.log("Fragments already exist, looking at current fragment.");
-  }
+  // if (fragmentBodies.length === 0) {
+  //   console.log("No fragments yet, exploding sphere first.");
+  //   explodeSphere();
+  // } else {
+  //   console.log("Fragments already exist, looking at current fragment.");
+  // }
   
 	// E for explosion; Q/W to navigate fragments
 	window.addEventListener("keydown", (event) => {
@@ -350,6 +373,24 @@ function init() {
 	    // shift the index internally
 	    currentFragmentIndex = Math.abs((currentFragmentIndex + 1) % fragmentMeshes.length);
 	  }
+    if (event.key === "a") {
+      event.preventDefault();
+      const visibleParticlesInScene = scene.children.filter(child => child instanceof Points);
+      if (visibleParticlesInScene.length > 0) {
+        const particlePositions = (visibleParticlesInScene[0] as Points).geometry.attributes.position?.array as Float32Array;
+        if (particlePositions.length >= 3) {
+          const avgX = particlePositions.reduce((sum, val, idx) => idx % 3 === 0 ? sum + val : sum, 0) / (particlePositions.length / 3);
+          const avgY = particlePositions.reduce((sum, val, idx) => idx % 3 === 1 ? sum + val : sum, 0) / (particlePositions.length / 3);
+          const avgZ = particlePositions.reduce((sum, val, idx) => idx % 3 === 2 ? sum + val : sum, 0) / (particlePositions.length / 3);
+          console.log(`Looking at average particle position: (${avgX.toFixed(2)}, ${avgY.toFixed(2)}, ${avgZ.toFixed(2)})`);
+          const targetPosition = new Vector3(avgX, avgY, avgZ);
+          camera.position.copy(targetPosition).add(new Vector3(0, 0, 5)); // Move camera back a bit
+          camera.lookAt(targetPosition);
+          orbit.target.copy(targetPosition);
+          orbit.update();
+        }
+      }
+    }
 	});
 }
 
